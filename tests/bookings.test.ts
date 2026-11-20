@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { BookingError, bookSlot } from "../src/bookings/service.ts";
-import { InMemoryBookingStore } from "../src/bookings/store.ts";
+import { InMemoryBookingStore, SlotTakenError } from "../src/bookings/store.ts";
 import { istToUtc } from "../src/time.ts";
 
 const clinicId = "carefirst-indiranagar";
@@ -60,13 +60,43 @@ describe("bookSlot", () => {
     await expectBookingError(bookSlot(store, input({ patientName: "  " })), "invalid_input");
   });
 
-  // TODO: fails today, two patients can book the same slot
-  it.skip("lets only one of two concurrent requests book the same slot", async () => {
+  it("lets only one of two concurrent requests book the same slot", async () => {
     const results = await Promise.allSettled([
       bookSlot(store, input({ patientName: "Asha Rao" })),
       bookSlot(store, input({ patientName: "Vikram Shah", patientPhone: "+919876543210" })),
     ]);
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     expect(await store.listByClinic(clinicId)).toHaveLength(1);
+
+    const rejected = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+    expect(rejected.reason).toBeInstanceOf(BookingError);
+    expect((rejected.reason as BookingError).code).toBe("slot_taken");
+  });
+
+  it("enforces slot uniqueness at the store level", async () => {
+    const booking = await bookSlot(store, input());
+    await expect(
+      store.insert({
+        ...booking,
+        id: "another-uuid",
+        patientName: "Vikram Shah",
+      }),
+    ).rejects.toBeInstanceOf(SlotTakenError);
+
+    // Cancelled bookings do not block new bookings for the same slot
+    const cancelledStore = new InMemoryBookingStore();
+    await cancelledStore.insert({
+      id: "cancelled-booking-id",
+      clinicId,
+      slotStart: monday10am,
+      slotEnd: istToUtc("2026-11-23", "10:15").toISOString(),
+      patientName: "Prior Patient",
+      patientPhone: "+919812345678",
+      status: "cancelled",
+      deposit: { amountPaise: 20_000, status: "refunded", razorpayOrderId: null },
+      createdAt: new Date().toISOString(),
+    });
+    const activeBooking = await bookSlot(cancelledStore, input());
+    expect(activeBooking.status).toBe("pending_payment");
   });
 });

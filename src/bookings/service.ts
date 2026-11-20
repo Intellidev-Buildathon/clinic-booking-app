@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { findClinic } from "../clinics/data.ts";
 import { findSlot } from "../clinics/slots.ts";
-import type { BookingStore } from "./store.ts";
+import { SlotTakenError, type BookingStore } from "./store.ts";
 import type { Booking, BookSlotInput } from "./types.ts";
 
 export type BookingErrorCode = "invalid_input" | "clinic_not_found" | "outside_opening_hours" | "slot_taken";
@@ -36,9 +36,6 @@ export async function bookSlot(store: BookingStore, input: BookSlotInput): Promi
   const slot = findSlot(clinic, start);
   if (!slot) throw new BookingError("outside_opening_hours", "the clinic has no slot at that time");
 
-  const existing = await store.findActiveBySlot(clinic.id, slot.start);
-  if (existing) throw new BookingError("slot_taken", "that slot is already booked");
-
   const booking: Booking = {
     id: randomUUID(),
     clinicId: clinic.id,
@@ -50,6 +47,14 @@ export async function bookSlot(store: BookingStore, input: BookSlotInput): Promi
     deposit: { amountPaise: clinic.depositPaise, status: "pending", razorpayOrderId: null },
     createdAt: new Date().toISOString(),
   };
-  await store.insert(booking);
+
+  try {
+    await store.insert(booking);
+  } catch (err) {
+    if (err instanceof SlotTakenError) {
+      throw new BookingError("slot_taken", err.message);
+    }
+    throw err;
+  }
   return booking;
 }

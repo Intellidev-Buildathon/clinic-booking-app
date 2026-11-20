@@ -1,5 +1,12 @@
 import type { Booking } from "./types.ts";
 
+export class SlotTakenError extends Error {
+  constructor(message = "that slot is already booked") {
+    super(message);
+    this.name = "SlotTakenError";
+  }
+}
+
 /**
  * Persistence boundary for bookings. The production store will be a database
  * hosted in asia-south1 (patient data must stay in India); every call is async.
@@ -32,6 +39,13 @@ export class InMemoryBookingStore implements BookingStore {
   async insert(booking: Booking): Promise<void> {
     await tick();
     if (this.bookings.has(booking.id)) throw new Error(`duplicate booking id ${booking.id}`);
+    if (!INACTIVE.has(booking.status)) {
+      for (const b of this.bookings.values()) {
+        if (b.clinicId === booking.clinicId && b.slotStart === booking.slotStart && !INACTIVE.has(b.status)) {
+          throw new SlotTakenError("that slot is already booked");
+        }
+      }
+    }
     this.bookings.set(booking.id, structuredClone(booking));
   }
 
