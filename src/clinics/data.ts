@@ -14,6 +14,8 @@ export const clinics: Clinic[] = [
     slotMinutes: 15,
     depositPaise: 20_000,
     openingHours: { 1: weekday, 2: weekday, 3: weekday, 4: weekday, 5: weekday, 6: [{ open: "09:00", close: "13:00" }] },
+    closedDates: ["2026-12-25"],
+    holidayCalendar: ["2026-12-25"],
   },
   {
     id: "carefirst-koramangala",
@@ -23,6 +25,8 @@ export const clinics: Clinic[] = [
     slotMinutes: 15,
     depositPaise: 15_000,
     openingHours: { 1: weekday, 3: weekday, 5: weekday },
+    closedDates: ["2026-12-25"],
+    holidayCalendar: ["2026-12-25"],
   },
 ];
 
