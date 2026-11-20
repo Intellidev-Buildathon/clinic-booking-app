@@ -59,9 +59,10 @@ pnpm typecheck    # tsc --noEmit
 
 ### Environment variables
 
-| Name   | Default | Purpose                  |
-| ------ | ------- | ------------------------ |
-| `PORT` | `3000`  | HTTP port for the server |
+| Name           | Default                   | Purpose                                        |
+| -------------- | ------------------------- | ---------------------------------------------- |
+| `PORT`         | `3000`                    | HTTP port for the server                       |
+| `APP_BASE_URL` | `http://localhost:${PORT}` | Base URL for patient links in reminder SMS    |
 
 ### API
 
@@ -70,10 +71,17 @@ curl localhost:3000/health
 curl "localhost:3000/clinics/carefirst-indiranagar/slots?date=2026-11-23"
 curl -X POST localhost:3000/bookings -H 'content-type: application/json' \
   -d '{"clinicId":"carefirst-indiranagar","slotStart":"2026-11-23T04:30:00.000Z","patientName":"Asha Rao","patientPhone":"+919812345678"}'
+curl "localhost:3000/bookings/<booking-id>/reschedule?date=2026-11-23"
+curl -X POST localhost:3000/bookings/<booking-id>/reschedule -H 'content-type: application/json' \
+  -d '{"slotStart":"2026-11-23T05:00:00.000Z"}'
+curl -X POST localhost:3000/bookings/<booking-id>/cancel
 ```
 
+`GET /bookings/:id/cancel` is also supported for cancellation links tapped from SMS.
+
 Errors are JSON `{ "error": code, "message" }` with status 400 (`invalid_input`),
-404 (`clinic_not_found`), 409 (`slot_taken`) or 422 (`outside_opening_hours`).
+404 (`clinic_not_found`, `booking_not_found`), 409 (`slot_taken`, `booking_not_reschedulable`)
+or 422 (`outside_opening_hours`).
 
 ## Known issues
 

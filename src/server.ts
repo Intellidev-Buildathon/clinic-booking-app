@@ -1,11 +1,11 @@
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { fileURLToPath } from "node:url";
-import { BookingError, bookSlot } from "./bookings/service.ts";
+import { BookingError, bookSlot, cancelBooking, isReschedulable, rescheduleBooking } from "./bookings/service.ts";
 import { InMemoryBookingStore, type BookingStore } from "./bookings/store.ts";
 import type { BookSlotInput } from "./bookings/types.ts";
 import { findClinic } from "./clinics/data.ts";
 import { generateSlots } from "./clinics/slots.ts";
-import { isValidDate } from "./time.ts";
+import { istDateOf, isValidDate } from "./time.ts";
 
 const MAX_BODY_BYTES = 16 * 1024;
 
@@ -14,6 +14,8 @@ const ERROR_STATUS: Record<BookingError["code"], number> = {
   clinic_not_found: 404,
   outside_opening_hours: 422,
   slot_taken: 409,
+  booking_not_found: 404,
+  booking_not_reschedulable: 409,
 };
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
@@ -65,6 +67,41 @@ async function handle(store: BookingStore, req: IncomingMessage, res: ServerResp
       patientPhone: String(body?.patientPhone ?? ""),
     });
     return sendJson(res, 201, booking);
+  }
+
+  const rescheduleMatch = /^\/bookings\/([^/]+)\/reschedule$/.exec(url.pathname);
+  if (req.method === "GET" && rescheduleMatch) {
+    const bookingId = decodeURIComponent(rescheduleMatch[1]!);
+    const booking = await store.get(bookingId);
+    if (!booking) throw new BookingError("booking_not_found", `unknown booking ${bookingId}`);
+    if (!isReschedulable(booking.status)) {
+      throw new BookingError("booking_not_reschedulable", `booking with status ${booking.status} cannot be rescheduled`);
+    }
+    const clinic = findClinic(booking.clinicId);
+    if (!clinic) throw new BookingError("clinic_not_found", `unknown clinic ${booking.clinicId}`);
+    const dateParam = url.searchParams.get("date");
+    const date = dateParam === null ? istDateOf(new Date(booking.slotStart)) : dateParam;
+    if (!isValidDate(date)) return sendJson(res, 400, { error: "invalid_input", message: "date must be YYYY-MM-DD" });
+    const taken = new Set(
+      (await store.listByClinic(clinic.id)).filter((b) => b.status !== "cancelled").map((b) => b.slotStart),
+    );
+    const slots = generateSlots(clinic, date).map((s) => ({ ...s, available: !taken.has(s.start) }));
+    return sendJson(res, 200, { booking, clinicId: clinic.id, date, timeZone: clinic.timeZone, slots });
+  }
+
+  if (req.method === "POST" && rescheduleMatch) {
+    const bookingId = decodeURIComponent(rescheduleMatch[1]!);
+    const body = (await readJson(req)) as { slotStart?: unknown } | null;
+    const slotStart = typeof body?.slotStart === "string" ? body.slotStart : "";
+    const booking = await rescheduleBooking(store, bookingId, slotStart);
+    return sendJson(res, 200, booking);
+  }
+
+  const cancelMatch = /^\/bookings\/([^/]+)\/cancel$/.exec(url.pathname);
+  if ((req.method === "GET" || req.method === "POST") && cancelMatch) {
+    const bookingId = decodeURIComponent(cancelMatch[1]!);
+    const booking = await cancelBooking(store, bookingId);
+    return sendJson(res, 200, booking);
   }
 
   sendJson(res, 404, { error: "not_found" });
