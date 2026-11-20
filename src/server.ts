@@ -1,6 +1,6 @@
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { fileURLToPath } from "node:url";
-import { BookingError, bookSlot } from "./bookings/service.ts";
+import { BookingError, bookSlot, cancelBooking } from "./bookings/service.ts";
 import { InMemoryBookingStore, type BookingStore } from "./bookings/store.ts";
 import type { BookSlotInput } from "./bookings/types.ts";
 import { findClinic } from "./clinics/data.ts";
@@ -14,6 +14,7 @@ const ERROR_STATUS: Record<BookingError["code"], number> = {
   clinic_not_found: 404,
   outside_opening_hours: 422,
   slot_taken: 409,
+  booking_not_found: 404,
 };
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
@@ -65,6 +66,13 @@ async function handle(store: BookingStore, req: IncomingMessage, res: ServerResp
       patientPhone: String(body?.patientPhone ?? ""),
     });
     return sendJson(res, 201, booking);
+  }
+
+  const cancelMatch = /^\/bookings\/([^/]+)\/cancel$/.exec(url.pathname);
+  if ((req.method === "GET" || req.method === "POST") && cancelMatch) {
+    const bookingId = decodeURIComponent(cancelMatch[1]!);
+    const booking = await cancelBooking(store, bookingId);
+    return sendJson(res, 200, booking);
   }
 
   sendJson(res, 404, { error: "not_found" });

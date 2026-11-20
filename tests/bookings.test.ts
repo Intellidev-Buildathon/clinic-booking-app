@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { BookingError, bookSlot } from "../src/bookings/service.ts";
+import { BookingError, bookSlot, cancelBooking } from "../src/bookings/service.ts";
 import { InMemoryBookingStore } from "../src/bookings/store.ts";
 import { istToUtc } from "../src/time.ts";
 
@@ -68,5 +68,37 @@ describe("bookSlot", () => {
     ]);
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     expect(await store.listByClinic(clinicId)).toHaveLength(1);
+  });
+});
+
+describe("cancelBooking", () => {
+  it("cancels an active booking and frees the slot", async () => {
+    const booking = await bookSlot(store, input());
+    expect(await store.findActiveBySlot(clinicId, booking.slotStart)).toBeDefined();
+
+    const cancelled = await cancelBooking(store, booking.id);
+    expect(cancelled.id).toBe(booking.id);
+    expect(cancelled.status).toBe("cancelled");
+
+    const inStore = await store.get(booking.id);
+    expect(inStore?.status).toBe("cancelled");
+
+    // The slot is now free for another booking
+    expect(await store.findActiveBySlot(clinicId, booking.slotStart)).toBeUndefined();
+    const newBooking = await bookSlot(store, input({ patientName: "Vikram Shah", patientPhone: "+919876543210" }));
+    expect(newBooking.status).toBe("pending_payment");
+  });
+
+  it("is idempotent when cancelling an already cancelled booking", async () => {
+    const booking = await bookSlot(store, input());
+    const cancelled1 = await cancelBooking(store, booking.id);
+    const cancelled2 = await cancelBooking(store, booking.id);
+    expect(cancelled2).toEqual(cancelled1);
+    expect(cancelled2.status).toBe("cancelled");
+  });
+
+  it("rejects unknown booking id and empty input", async () => {
+    await expectBookingError(cancelBooking(store, "non-existent-id"), "booking_not_found");
+    await expectBookingError(cancelBooking(store, "   "), "invalid_input");
   });
 });
