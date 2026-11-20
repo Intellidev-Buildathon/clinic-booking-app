@@ -4,7 +4,7 @@ import { findSlot } from "../clinics/slots.ts";
 import type { BookingStore } from "./store.ts";
 import type { Booking, BookSlotInput } from "./types.ts";
 
-export type BookingErrorCode = "invalid_input" | "clinic_not_found" | "outside_opening_hours" | "slot_taken";
+export type BookingErrorCode = "invalid_input" | "clinic_not_found" | "outside_opening_hours" | "slot_taken" | "booking_not_found";
 
 export class BookingError extends Error {
   readonly code: BookingErrorCode;
@@ -51,5 +51,25 @@ export async function bookSlot(store: BookingStore, input: BookSlotInput): Promi
     createdAt: new Date().toISOString(),
   };
   await store.insert(booking);
+  return booking;
+}
+
+/**
+ * Cancels an existing booking and releases its slot.
+ * Idempotent: cancelling an already cancelled booking returns the booking without error.
+ */
+export async function cancelBooking(store: BookingStore, bookingId: string): Promise<Booking> {
+  const id = bookingId?.trim();
+  if (!id) throw new BookingError("invalid_input", "bookingId is required");
+
+  const booking = await store.get(id);
+  if (!booking) throw new BookingError("booking_not_found", `unknown booking ${id}`);
+
+  if (booking.status === "cancelled") {
+    return booking;
+  }
+
+  booking.status = "cancelled";
+  await store.update(booking);
   return booking;
 }

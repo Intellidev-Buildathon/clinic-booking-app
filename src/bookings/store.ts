@@ -9,6 +9,7 @@ export interface BookingStore {
   insert(booking: Booking): Promise<void>;
   get(id: string): Promise<Booking | undefined>;
   listByClinic(clinicId: string): Promise<Booking[]>;
+  update(booking: Booking): Promise<void>;
 }
 
 /** Yields to the event loop to simulate a round trip to the database. */
@@ -44,5 +45,11 @@ export class InMemoryBookingStore implements BookingStore {
   async listByClinic(clinicId: string): Promise<Booking[]> {
     await tick();
     return [...this.bookings.values()].filter((b) => b.clinicId === clinicId).map((b) => structuredClone(b));
+  }
+
+  async update(booking: Booking): Promise<void> {
+    await tick();
+    if (!this.bookings.has(booking.id)) throw new Error(`booking not found: ${booking.id}`);
+    this.bookings.set(booking.id, structuredClone(booking));
   }
 }
