@@ -1,0 +1,22 @@
+{
+  "name": "clinic-booking-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Appointment booking for CareFirst Clinics, built by Northbeam Studio",
+  "type": "module",
+  "packageManager": "pnpm@11.8.0",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "dev": "node --watch src/server.ts",
+    "start": "node src/server.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "typescript": "7.0.2",
+    "vitest": "5.1.1"
+  }
+}
