@@ -5,7 +5,8 @@ import { InMemoryBookingStore, type BookingStore } from "./bookings/store.ts";
 import type { BookSlotInput } from "./bookings/types.ts";
 import { findClinic } from "./clinics/data.ts";
 import { generateSlots } from "./clinics/slots.ts";
-import { isValidDate } from "./time.ts";
+import type { OpeningHours } from "./clinics/types.ts";
+import { isValidDate, weekdayOf } from "./time.ts";
 
 const MAX_BODY_BYTES = 16 * 1024;
 
@@ -52,8 +53,9 @@ async function handle(store: BookingStore, req: IncomingMessage, res: ServerResp
     const taken = new Set(
       (await store.listByClinic(clinic.id)).filter((b) => b.status !== "cancelled").map((b) => b.slotStart),
     );
+    const openingHours = clinic.openingHours[weekdayOf(date) as keyof OpeningHours] ?? [];
     const slots = generateSlots(clinic, date).map((s) => ({ ...s, available: !taken.has(s.start) }));
-    return sendJson(res, 200, { clinicId: clinic.id, date, timeZone: clinic.timeZone, slots });
+    return sendJson(res, 200, { clinicId: clinic.id, date, timeZone: clinic.timeZone, openingHours, slots });
   }
 
   if (req.method === "POST" && url.pathname === "/bookings") {

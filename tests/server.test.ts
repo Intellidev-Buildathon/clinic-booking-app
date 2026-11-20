@@ -42,4 +42,21 @@ describe("http server", () => {
     expect((await fetch(`${base}/clinics/carefirst-indiranagar/slots?date=tomorrow`)).status).toBe(400);
     expect((await fetch(`${base}/nope`)).status).toBe(404);
   });
+
+  it("returns opening hours for the requested date", async () => {
+    const openRes = await fetch(`${base}/clinics/carefirst-indiranagar/slots?date=2026-11-23`);
+    expect(openRes.status).toBe(200);
+    const openBody = (await openRes.json()) as { openingHours: unknown; slots: unknown[] };
+    expect(openBody.openingHours).toEqual([
+      { open: "09:00", close: "13:00" },
+      { open: "14:00", close: "18:00" },
+    ]);
+    expect(openBody.slots.length).toBeGreaterThan(0);
+
+    const closedRes = await fetch(`${base}/clinics/carefirst-indiranagar/slots?date=2026-11-22`);
+    expect(closedRes.status).toBe(200);
+    const closedBody = (await closedRes.json()) as { openingHours: unknown; slots: unknown[] };
+    expect(closedBody.openingHours).toEqual([]);
+    expect(closedBody.slots).toEqual([]);
+  });
 });
