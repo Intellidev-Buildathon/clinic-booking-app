@@ -22,6 +22,10 @@ export interface Booking {
   status: BookingStatus;
   deposit: Deposit;
   createdAt: string;
+  /** Doctor assigned to the booking/slot, e.g. "Dr. Neha Sharma". */
+  doctor?: string;
+  /** ISO timestamp when the 24-hour reminder was dispatched, if sent. */
+  reminderSentAt?: string | null;
 }
 
 export interface BookSlotInput {
