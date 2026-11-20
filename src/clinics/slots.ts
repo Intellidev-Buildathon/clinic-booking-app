@@ -7,6 +7,8 @@ import type { Clinic, OpeningHours, Slot } from "./types.ts";
  */
 export function generateSlots(clinic: Clinic, date: string): Slot[] {
   if (!isValidDate(date)) throw new Error(`invalid date: ${date}`);
+  const isClosed = clinic.closedDates?.includes(date) || clinic.holidayCalendar?.includes(date);
+  if (isClosed) return [];
   const windows = clinic.openingHours[weekdayOf(date) as keyof OpeningHours] ?? [];
   const stepMs = clinic.slotMinutes * 60_000;
   const slots: Slot[] = [];

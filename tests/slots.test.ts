@@ -28,6 +28,13 @@ describe("generateSlots", () => {
     expect(generateSlots(clinic, "2026-11-22")).toEqual([]); // Sunday
   });
 
+  it("returns no slots on a closed date from the holiday calendar", () => {
+    // 2026-12-25 is a Friday (normally 32 slots), but configured as a holiday
+    expect(generateSlots(clinic, "2026-12-25")).toEqual([]);
+    expect(generateSlots({ ...clinic, closedDates: ["2026-11-23"] }, "2026-11-23")).toEqual([]);
+    expect(generateSlots({ ...clinic, holidayCalendar: ["2026-11-23"] }, "2026-11-23")).toEqual([]);
+  });
+
   it("rejects malformed dates", () => {
     expect(() => generateSlots(clinic, "2026-02-30")).toThrow(/invalid date/);
   });
@@ -41,5 +48,10 @@ describe("findSlot", () => {
   it("returns undefined outside opening hours", () => {
     expect(findSlot(clinic, istToUtc("2026-11-23", "19:00"))).toBeUndefined();
     expect(findSlot(clinic, istToUtc("2026-11-23", "10:07"))).toBeUndefined();
+  });
+
+  it("returns undefined for a slot on a closed holiday date", () => {
+    expect(findSlot(clinic, istToUtc("2026-12-25", "10:00"))).toBeUndefined();
+    expect(findSlot({ ...clinic, closedDates: ["2026-11-23"] }, istToUtc("2026-11-23", "10:00"))).toBeUndefined();
   });
 });

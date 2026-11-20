@@ -16,6 +16,10 @@ export interface Clinic {
   /** Booking deposit in paise (100 paise = 1 rupee). */
   depositPaise: number;
   openingHours: OpeningHours;
+  /** Closed dates in clinic local time (YYYY-MM-DD). */
+  closedDates?: string[];
+  /** Holiday calendar (alias for closedDates). */
+  holidayCalendar?: string[];
 }
 
 export interface Slot {

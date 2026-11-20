@@ -52,6 +52,10 @@ describe("bookSlot", () => {
       bookSlot(store, input({ slotStart: istToUtc("2026-11-22", "10:00").toISOString() })),
       "outside_opening_hours",
     );
+    await expectBookingError(
+      bookSlot(store, input({ slotStart: istToUtc("2026-12-25", "10:00").toISOString() })),
+      "outside_opening_hours",
+    );
   });
 
   it("rejects unknown clinics and bad input", async () => {

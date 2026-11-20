@@ -42,4 +42,12 @@ describe("http server", () => {
     expect((await fetch(`${base}/clinics/carefirst-indiranagar/slots?date=tomorrow`)).status).toBe(400);
     expect((await fetch(`${base}/nope`)).status).toBe(404);
   });
+
+  it("returns no slots for a clinic holiday date", async () => {
+    const res = await fetch(`${base}/clinics/carefirst-indiranagar/slots?date=2026-12-25`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { clinicId: string; date: string; slots: unknown[] };
+    expect(body.slots).toEqual([]);
+    expect(body.date).toBe("2026-12-25");
+  });
 });
